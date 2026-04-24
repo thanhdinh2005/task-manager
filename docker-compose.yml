@@ -1,0 +1,30 @@
+services:
+
+  adminer:
+    image: adminer:5.4.1
+    ports:
+      - "8083:8080"
+    networks:
+      - task-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: cinema_db
+    env_file: ./backend/.env
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - task-network
+
+volumes:
+  postgres_data:
+
+networks:
+  task-network:
+    driver: bridge
