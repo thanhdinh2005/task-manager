@@ -16,4 +16,11 @@ public class UserMapper {
                 .createdAt(user.getCreatedAt())
                 .build();
     }
+
+    public UserSummary toUserSummary(User user) {
+        return UserSummary.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .build();
+    }
 }

@@ -23,7 +23,7 @@ public enum ErrorCode {
     NOT_PROJECT_OWNER(403, "You are not owner of this project"),
     SAME_AS_OLD_PROJECT_NAME(400, "The project name has been used, try another name"),
     CANNOT_REMOVE_YOURSELF(400, "You cannot remove yourself"),
-
+    FORBIDDEN(403, "You are not allow for this resourse"),
 
     // Task
     TASK_NOT_FOUND(404, "Task not found"),
