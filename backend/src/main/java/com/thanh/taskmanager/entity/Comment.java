@@ -21,4 +21,23 @@ public class Comment extends BaseEntity{
     @Column(nullable = false)
     private String content;
 
+    public static Comment create(
+            Task task,
+            User author,
+            String content
+    ) {
+        Comment comment = new Comment();
+        comment.author = author;
+        comment.task = task;
+        comment.content = content;
+        return comment;
+    }
+
+    public void update(String content) {
+        this.content = content;
+    }
+
+    public boolean isAuthor(Long userId) {
+        return this.author.getId().equals(userId);
+    }
 }

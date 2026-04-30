@@ -33,6 +33,10 @@ public enum ErrorCode {
     // User
     USER_NOT_FOUND(404, "User not found"),
 
+    // Comment
+    COMMENT_NOT_FOUND(404, "Task not found"),
+    NOT_AUTHOR_COMMENT(400, "You are not author to update this comment"),
+
     ;
 
     private final int httpStatus;
