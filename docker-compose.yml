@@ -9,8 +9,8 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: cinema_db
-    env_file: ./backend/.env
+    container_name: task_db
+    env_file: .env
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USERNAME}
@@ -21,6 +21,22 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - task-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: spring-api
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT:-8081}:8081"
+    networks:
+      - task-network
+    depends_on:
+      - postgres
+    volumes:
+      - ./config/application.yml:/app/config/application.yml
 
 volumes:
   postgres_data:
