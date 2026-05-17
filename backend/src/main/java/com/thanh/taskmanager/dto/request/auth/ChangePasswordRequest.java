@@ -1,9 +1,10 @@
 package com.thanh.taskmanager.dto.request.auth;
 
 import jakarta.validation.constraints.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-@Getter
+@Getter @AllArgsConstructor
 public class ChangePasswordRequest {
 
     @NotBlank(message = "Current password is required")

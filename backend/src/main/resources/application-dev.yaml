@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: task-manager
+
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+    show-sql: true
+
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.springframework.orm.jpa: DEBUG
+
+application:
+  security:
+    jwt:
+      secret-key: 7xK92mQaP4vLzN8sT1yR5uW0bH3cDfGk
+      expiration: 900000
+      refresh-expiration-ms: 604800000

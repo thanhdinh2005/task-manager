@@ -27,6 +27,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: spring-api
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
     env_file:
       - .env
     ports:
@@ -35,8 +37,6 @@ services:
       - task-network
     depends_on:
       - postgres
-    volumes:
-      - ./config/application.yml:/app/config/application.yml
 
 volumes:
   postgres_data:
