@@ -14,7 +14,6 @@ import com.thanh.taskmanager.repository.RefreshTokenRepository;
 import com.thanh.taskmanager.repository.UserRepository;
 import com.thanh.taskmanager.security.CustomUserDetails;
 import com.thanh.taskmanager.service.AuthService;
-import com.thanh.taskmanager.service.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

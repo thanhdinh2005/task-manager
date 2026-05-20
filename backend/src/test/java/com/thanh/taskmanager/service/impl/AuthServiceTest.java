@@ -1,4 +1,4 @@
-package com.thanh.taskmanager.service;
+package com.thanh.taskmanager.service.impl;
 
 import com.thanh.taskmanager.dto.request.auth.ChangePasswordRequest;
 import com.thanh.taskmanager.dto.request.auth.LoginRequest;
@@ -15,6 +15,7 @@ import com.thanh.taskmanager.repository.UserRepository;
 import com.thanh.taskmanager.security.CustomUserDetails;
 import com.thanh.taskmanager.service.impl.AuthServiceImpl;
 import com.thanh.taskmanager.service.impl.JwtService;
+import com.thanh.taskmanager.service.impl.RefreshTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -245,6 +246,36 @@ public class AuthServiceTest {
         assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
     }
 
+    //
+    // Refresh Token
+    //
+    @Test
+    @DisplayName("Should throw exception when refresh token not found")
+    void refreshToken_WhenRefreshTokenNotFound_ShouldThrowException() {
+        given(refreshTokenRepository.findByToken(anyString())).willReturn(Optional.empty());
+        String refreshToken = "refreshToken";
 
+        AppException exception = assertThrows(AppException.class, () -> authService.refreshToken(refreshToken));
 
+        assertEquals(ErrorCode.REFRESH_TOKEN_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Should successfully when token valid")
+    void refreshToken_WhenTokenValid_ShouldSuccessfully() {
+        given(refreshTokenRepository.findByToken(anyString())).willReturn(Optional.of(mockRefreshToken));
+        given(refreshTokenService.verifyExpiration(mockRefreshToken)).willReturn(mockRefreshToken);
+        given(jwtService.generateAccessToken(mockUser)).willReturn(mockAccessToken);
+        given(refreshTokenService.rotateRefreshToken(mockRefreshToken)).willReturn(mockRefreshToken);
+
+        TokenResponse expectedResponse = TokenResponse.builder()
+                .accessToken(mockAccessToken)
+                .refreshToken(mockRefreshToken.getToken())
+                .build();
+
+        TokenResponse actualResponse = authService.refreshToken(mockRefreshToken.getToken());
+
+        assertEquals(actualResponse.getAccessToken(), expectedResponse.getAccessToken());
+        assertEquals(actualResponse.getRefreshToken(), expectedResponse.getRefreshToken());
+    }
 }
