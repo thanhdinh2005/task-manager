@@ -1,9 +1,11 @@
 package com.thanh.taskmanager.dto.request.project;
 
 import jakarta.validation.constraints.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
+@AllArgsConstructor
 public class CreateProjectRequest {
 
     @NotBlank(message = "Project name is required")
