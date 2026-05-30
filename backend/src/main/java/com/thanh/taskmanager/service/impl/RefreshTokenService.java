@@ -31,12 +31,12 @@ public class RefreshTokenService {
     public RefreshToken verifyExpiration(RefreshToken token) {
         if (token.isRevoked()) {
             refreshTokenRepository.deleteAllByUser(token.getUser());
-            throw new AppException(ErrorCode.TOKEN_REVOKED);
+            throw new AppException(ErrorCode.REFRESH_TOKEN_REVOKED);
         }
 
         if (token.isExpired()) {
             refreshTokenRepository.delete(token);
-            throw new AppException(ErrorCode.TOKEN_EXPIRED);
+            throw new AppException(ErrorCode.REFRESH_TOKEN_EXPIRED);
         }
 
         return token;

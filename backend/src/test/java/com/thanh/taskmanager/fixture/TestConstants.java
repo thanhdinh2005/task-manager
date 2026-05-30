@@ -11,4 +11,5 @@ public class TestConstants {
     public static final String DEFAULT_PROJECT_NAME = "Default Project Name";
     public static final String DESCRIPTION = "Default description";
 
+    public static final String DEFAULT_TASK_TITLE   = "My Task";
 }

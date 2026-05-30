@@ -2,10 +2,12 @@ package com.thanh.taskmanager.dto.request.task;
 
 import com.thanh.taskmanager.entity.enums.Priority;
 import jakarta.validation.constraints.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import java.time.LocalDate;
 
 @Getter
+@AllArgsConstructor
 public class CreateTaskRequest {
 
     @NotBlank(message = "Title is required")

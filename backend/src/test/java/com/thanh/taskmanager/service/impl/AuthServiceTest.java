@@ -285,7 +285,6 @@ public class AuthServiceTest {
         @Test
         @DisplayName("Should encode new password and save user when request is valid")
         void changePassword_WhenValidRequest_ShouldEncodeAndSave() {
-            // FIX: original test had no assertions on encoding or saving — it was testing nothing.
             given(userRepository.findById(mockUser.getId())).willReturn(Optional.of(mockUser));
             given(passwordEncoder.matches(PASSWORD, mockUser.getHashPassword())).willReturn(true);
             given(passwordEncoder.matches(NEW_PASSWORD, mockUser.getHashPassword())).willReturn(false);
@@ -294,7 +293,7 @@ public class AuthServiceTest {
             authService.changePassword(mockUser.getId(), changePasswordRequest);
 
             verify(passwordEncoder).encode(NEW_PASSWORD);
-            verify(userRepository).save(mockUser);
+            verifyNoMoreInteractions(userRepository);
         }
     }
 

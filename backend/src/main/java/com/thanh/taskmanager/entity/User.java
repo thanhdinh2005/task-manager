@@ -58,11 +58,11 @@ public class User extends BaseEntity {
     ) {
 
         if (!encoder.matches(currentPassword, this.hashPassword)) {
-            throw new AppException(ErrorCode.INVALID_CURRENT_PASSWORD);
+            throw new AppException(ErrorCode.WRONG_PASSWORD);
         }
 
         if (encoder.matches(newPassword, this.hashPassword)) {
-            throw new AppException(ErrorCode.SAME_AS_OLD_PASSWORD);
+            throw new AppException(ErrorCode.SAME_PASSWORD);
         }
 
         this.hashPassword = encoder.encode(newPassword);
