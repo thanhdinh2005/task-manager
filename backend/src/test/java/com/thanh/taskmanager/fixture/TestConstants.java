@@ -12,4 +12,7 @@ public class TestConstants {
     public static final String DESCRIPTION = "Default description";
 
     public static final String DEFAULT_TASK_TITLE   = "My Task";
+
+    public static final String DEFAULT_COMMENT_CONTENT = "This is a comment.";
+    public static final String UPDATED_COMMENT_CONTENT = "This is an updated comment.";
 }
