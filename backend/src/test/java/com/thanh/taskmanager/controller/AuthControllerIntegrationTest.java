@@ -3,7 +3,7 @@ package com.thanh.taskmanager.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.thanh.taskmanager.dto.request.auth.LoginRequest;
 import com.thanh.taskmanager.dto.request.auth.RegisterRequest;
-import com.thanh.taskmanager.repository.UserRepository;
+import com.thanh.taskmanager.repository.*;
 import com.thanh.taskmanager.BaseIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +22,11 @@ public class AuthControllerIntegrationTest extends BaseIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private UserRepository userRepository;
+    @Autowired private ProjectRepository projectRepository;
+    @Autowired private TaskRepository taskRepository;
+    @Autowired private CommentRepository commentRepository;
+    @Autowired private ProjectMemberRepository projectMemberRepository;
+    @Autowired private RefreshTokenRepository refreshTokenRepository;
 
     private static final String EMAIL     = "integration@test.com";
     private static final String PASSWORD  = "password123";
@@ -29,6 +34,11 @@ public class AuthControllerIntegrationTest extends BaseIntegrationTest {
 
     @BeforeEach
     void cleanUp() {
+        refreshTokenRepository.deleteAll();
+        commentRepository.deleteAll();
+        taskRepository.deleteAll();
+        projectMemberRepository.deleteAll();
+        projectRepository.deleteAll();
         userRepository.deleteAll();
     }
 

@@ -8,6 +8,5 @@ import org.springframework.transaction.annotation.Transactional;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@Transactional
 public abstract class BaseIntegrationTest {
 }
