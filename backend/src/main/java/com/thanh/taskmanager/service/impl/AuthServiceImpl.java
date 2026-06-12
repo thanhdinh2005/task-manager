@@ -84,6 +84,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public TokenResponse refreshToken(String refreshToken) {
         return refreshTokenRepository.findByToken(refreshToken)
                 .map(refreshTokenService::verifyExpiration)
