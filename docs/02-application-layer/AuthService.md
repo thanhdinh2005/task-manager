@@ -1,20 +1,29 @@
-# Self-Review: Authentication Flow & Token Rotation Strategies
+# AuthService Documentation
 
-### 1. Purpose
-Looking into the complex methods of `AuthService` (`login` and `refreshToken`). The goal is to understand how we delegate authentication to Spring Security and how business rules dictate our token management strategy.
+## Responsibilities and Business Functions
 
-### 2. The Old Way (The Naive Approach)
-In the past, to log a user in, I would manually fetch the user by email from the database, hash the incoming password, compare the two strings, and write custom `if-else` logic to throw "Wrong password" errors. It was tedious and risky to write security cryptography by hand. Also, hardcoding JWT secret keys directly into the source code was a massive security vulnerability.
+The `AuthService` is responsible for managing user authentication and authorization within the application. Its core functions include:
 
-### 3. The Current Approach
-Now, we let Spring Security do the heavy lifting using the `AuthenticationManager`. We also manage state via stateless JWTs (Access & Refresh tokens), with all sensitive configurations (secrets, expiration times) strictly injected via Environment Variables (ENV).
+- **User Registration:** Allowing new users to create accounts by providing email, password, and full name. It validates that the email is unique before saving the user.
+- **User Login:** Authenticating existing users using their email and password. Upon successful authentication, it generates an access token and a refresh token.
+- **Token Management:** It works with `JwtService` and `RefreshTokenService` to generate and manage access and refresh tokens. The `refreshToken` method allows for the issuance of new access tokens when the current one expires, using a valid refresh token.
+- **User Profile Retrieval:** Provides a way for authenticated users to retrieve their own profile information (`getMe` method).
+- **Password Management:** Enables users to change their password securely by requiring the current password and providing a new one.
 
-### 4. How it Works
-* **The Bouncer (`AuthenticationManager`):** I just pass the raw username and password to this manager. It acts like a bouncer at a club. If the credentials don't match, it automatically throws an exception (which our Global `RestControllerAdvice` catches nicely). If it succeeds, it lets me cast the `Principal` into my `CustomUserDetails` to grab the specific `User` entity.
-* **Environment Configuration (ENV):** By keeping token configurations in ENV instead of hardcoding them in `application.yml`, the application becomes "Cloud-Ready". DevOps can easily rotate keys or change expiration times without touching or recompiling the code.
-* **Token Rotation & Security Posture:** Inside `refreshToken`, we rotate the old token for a new one. The exact logic heavily depends on the business's security posture:
-    * *Standard Security:* We just delete/invalidate the exact refresh token that was just used.
-    * *High Security (Strict Mode):* We call `deleteAllByUser()`. If a token expires or is suspected to be compromised, we wipe out ALL tokens for that user. This forcefully logs them out of everywhere (Mobile, Web, iPad) simultaneously, requiring a fresh login across all devices.
+## Transactional Aspects
 
-### 5. Lesson Learned
-Security is not just a technical implementation; it's a business decision. Designing a high-security app means understanding the trade-offs between User Experience (making them re-login) and System Safety. Furthermore, delegating core security checks to the framework makes the Service layer much cleaner.
+- The `register` and `changePassword` methods are annotated with `@Transactional`, ensuring that these operations are atomic. If any part of the registration or password change process fails, the entire operation is rolled back.
+- The `refreshToken` method is also transactional, ensuring that the generation of a new access token and the rotation of the refresh token (which involves saving a new refresh token and potentially revoking the old one) are atomic.
+- The `login` method is *not* explicitly marked with `@Transactional`. In this case, Spring's default `Propagation.REQUIRED` behavior means that if `login` is called by another transactional method, it will participate in that outer transaction. However, if called directly, its database operations might be auto-committed (depending on container configuration) or run without explicit transaction management unless an outer transaction is present.
+
+## Potential Performance Concerns (N+1, Heavy Queries)
+
+- **N+1 Potential:** The `login` method calls `jwtService.generateAccessToken(user)` and `refreshTokenService.createRefreshToken(user.getId())`. If `createRefreshToken` involves fetching related entities that are lazily loaded, an N+1 could occur, although it's less likely here as it seems to be a direct save operation.
+- **`refreshToken` Method:** This method involves multiple steps: finding the refresh token, verifying expiration, rotating the token (which might involve fetching user details), generating a new access token, and creating a new refresh token. While each step might be relatively quick, the combination could be considered a multi-step operation. The core concern is ensuring atomicity via the `@Transactional` annotation.
+
+## Security Considerations
+
+- **Password Hashing:** Uses `PasswordEncoder` for securely hashing passwords during registration and password changes, which is a standard security best practice.
+- **JWT Usage:** Relies on JWT for access tokens, which is common for stateless authentication in APIs. The use of refresh tokens adds a layer of security for maintaining user sessions without frequent re-authentication.
+- **Input Validation:** Basic validation is present (e.g., checking for unique emails, valid current passwords), which is crucial for preventing security vulnerabilities.
+- **Error Handling:** Uses `AppException` with `ErrorCode` for consistent error responses, which is good for API design and security (avoids leaking sensitive internal errors).
