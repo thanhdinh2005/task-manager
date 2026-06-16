@@ -56,14 +56,14 @@ jobs:
       uses: docker/metadata-action@v5
       with:
         images: ${{ secrets.DOCKERHUB_USERNAME }}/task-manager-api
-        tags: |
-          type=sha,format=long
-          type=ref,event=branch
-          type=ref,event=pr
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=semver,pattern={{major}}
-          type=latest
+        tags:
+          - type=sha,format=long
+          - type=ref,event=branch
+          - type=ref,event=pr
+          - type=semver,pattern={{version}}
+          - type=semver,pattern={{major}}.{{minor}}
+          - type=semver,pattern={{major}}
+          - type=latest
 
     # 8. Build and push Docker image
     - name: Build and Push Docker Image
