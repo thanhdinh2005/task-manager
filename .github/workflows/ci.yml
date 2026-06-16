@@ -67,43 +67,49 @@ jobs:
   # ==========================================
   # JOB 3: DEPLOY
   # ==========================================
+  # ==========================================
+  # JOB 3: DEPLOY (NATIVE SSH QUA TAILSCALE)
+  # ==========================================
   deploy-to-homelab:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: 👀 DevOps Debug Secrets
-        run: |
-          if [ -z "${{ secrets.TS_OAUTH_CLIENT_ID }}" ]; then
-            echo "❌ LỖI: Biến TS_OAUTH_CLIENT_ID đang bị TRỐNG HOÀN TOÀN!"
-          else
-            echo "✅ THÀNH CÔNG: TS_OAUTH_CLIENT_ID hợp lệ (Độ dài: $(echo -n "${{ secrets.TS_OAUTH_CLIENT_ID }}" | wc -c) ký tự)"
-          fi
-          
-          if [ -z "${{ secrets.TS_OAUTH_SECRET }}" ]; then
-            echo "❌ LỖI: Biến TS_OAUTH_SECRET đang bị TRỐNG HOÀN TOÀN!"
-          else
-            echo "✅ THÀNH CÔNG: TS_OAUTH_SECRET hợp lệ (Độ dài: $(echo -n "${{ secrets.TS_OAUTH_SECRET }}" | wc -c) ký tự)"
-          fi
-
       - name: Set up Tailscale
         uses: tailscale/github-action@v2
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
 
-      - name: Test Network Connection to Homelab
+      - name: Native SSH and Deploy
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SSH_USER }}
         run: |
-          echo "Đang thử gọi điện (ping) đến máy chủ Homelab tại IP: ${{ secrets.SERVER_HOST }}"
-          ping -c 4 ${{ secrets.SERVER_HOST }}
-
-      - name: SSH and Deploy via Docker Compose
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
+          # 1. Debug kiểm tra xem biến có được nạp đủ dòng không (Đếm số dòng)
+          echo "Số dòng của Private Key được nạp:"
+          echo "$SSH_KEY" | wc -l
+          
+          # 2. Tạo thư mục SSH ẩn an toàn trên runner
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
+          # 3. Ghi Private Key từ Secret ra một file vật lý và cấp quyền 600
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          
+          # 4. Tắt chế độ StrictHostKeyChecking (tránh bị hỏi "Are you sure you want to continue connecting (yes/no)?")
+          cat <<EOF > ~/.ssh/config
+          Host homelab
+            HostName $HOST
+            User $USER
+            IdentityFile ~/.ssh/id_ed25519
+            StrictHostKeyChecking no
+          EOF
+          chmod 600 ~/.ssh/config
+          
+          # 5. SSH thẳng vào server và chạy kịch bản Deploy
+          ssh homelab << 'EOF'
             cd ~/task-manager-deploy
             
             echo "Pulling latest image from Docker Hub..."
@@ -114,3 +120,4 @@ jobs:
             
             echo "Cleaning up old images to save disk space..."
             docker image prune -f
+          EOF
