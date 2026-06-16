@@ -92,6 +92,11 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
+      - name: Test Network Connection to Homelab
+        run: |
+          echo "Đang thử gọi điện (ping) đến máy chủ Homelab tại IP: ${{ secrets.SERVER_HOST }}"
+          ping -c 4 ${{ secrets.SERVER_HOST }}
+
       - name: SSH and Deploy via Docker Compose
         uses: appleboy/ssh-action@v1.0.3
         with:
