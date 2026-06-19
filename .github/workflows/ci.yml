@@ -108,64 +108,59 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
           
+          # Deploy - pass APP_VERSION directly via environment
           ssh homelab bash -c '
             set -e
           
             APP_PORT="8081"
+            GIT_SHA="${{ env.GIT_SHA }}"
+            DOCKERHUB_USERNAME="${{ env.DOCKERHUB_USERNAME }}"
             HEALTH_CHECK_URL="http://localhost:${APP_PORT}/actuator/health/ready"
           
             echo "=================================="
             echo "🚀 Deploying to homelab..."
-            echo "Git SHA: ${{ env.GIT_SHA }}"
-            echo "Docker Image: ${{ env.DOCKERHUB_USERNAME }}/task-manager-api:${{ env.GIT_SHA }}"
+            echo "Git SHA: $GIT_SHA"
+            echo "Docker Image: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
             echo "=================================="
           
             cd ~/task-manager-deploy/app
           
-            # Check .env
-            if [ ! -f .env ]; then
-              echo "❌ .env file not found"
-              exit 1
-            fi
+            # Step 1: Set environment variables (no .env file needed)
+            export DOCKERHUB_USERNAME="$DOCKERHUB_USERNAME"
+            export APP_VERSION="$GIT_SHA"
+            export DB_NAME="taskdb"
+            export DB_USERNAME="taskuser"
+            export DB_PASSWORD="$(cat ~/.db_password 2>/dev/null || echo "")"
+            export APP_PORT="$APP_PORT"
           
-            # Update APP_VERSION
-            echo "📝 Setting APP_VERSION=${{ env.GIT_SHA }} in .env..."
-            if grep -q "^APP_VERSION=" .env; then
-              sed -i "s/^APP_VERSION=.*/APP_VERSION=${{ env.GIT_SHA }}/" .env
-            else
-              echo "APP_VERSION=${{ env.GIT_SHA }}" >> .env
-            fi
-          
-            echo "✅ .env updated:"
-            grep "^APP_VERSION=" .env
+            # Debug: Show vars
+            echo "📝 Environment:"
+            echo "  DOCKERHUB_USERNAME=$DOCKERHUB_USERNAME"
+            echo "  APP_VERSION=$APP_VERSION"
+            echo "  IMAGE=$DOCKERHUB_USERNAME/task-manager-api:$APP_VERSION"
             echo ""
           
-            # Get current image
-            echo "📸 Current state:"
-            docker compose images backend || echo "No image running"
-            echo ""
-          
-            # Pull image
-            echo "📥 Pulling latest image..."
+            # Step 2: Pull image
+            echo "📥 Pulling image: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
             docker compose pull backend || { echo "❌ Failed to pull"; exit 1; }
           
-            # Stop gracefully
+            # Step 3: Stop gracefully
             echo ""
-            echo "⏸️  Stopping backend (30s graceful shutdown)..."
+            echo "⏸️  Stopping backend..."
             docker compose stop -t 30 backend || true
             sleep 2
           
-            # Start
+            # Step 4: Start
             echo "🚀 Starting backend..."
             docker compose up -d backend || { echo "❌ Failed to start"; docker compose logs backend --tail 20; exit 1; }
           
-            # Health check
+            # Step 5: Health check
             echo ""
-            echo "⏳ Health check (up to 30s)..."
+            echo "⏳ Health check..."
             RETRY=0
             while [ $RETRY -lt 30 ]; do
               if curl -s -f "$HEALTH_CHECK_URL" > /dev/null 2>&1; then
-                echo "✅ App is healthy!"
+                echo "✅ App healthy!"
                 break
               fi
               RETRY=$((RETRY + 1))
@@ -176,22 +171,20 @@ jobs:
             done
           
             if [ $RETRY -eq 30 ]; then
-              echo "❌ App not healthy after 30s"
-              echo "📋 Logs:"
+              echo "❌ App not healthy"
               docker logs task_app --tail 30 || true
               exit 1
             fi
           
-            # Cleanup
+            # Step 6: Cleanup
             echo ""
-            echo "🧹 Cleaning up..."
+            echo "🧹 Cleanup..."
             docker image prune -f
           
             # Success
             echo ""
-            echo "✅ ========== DEPLOYMENT SUCCESSFUL =========="
-            echo "Version: ${{ env.GIT_SHA }}"
-            echo "Image: ${{ env.DOCKERHUB_USERNAME }}/task-manager-api:${{ env.GIT_SHA }}"
+            echo "✅ DEPLOYMENT SUCCESSFUL"
+            echo "Version: $GIT_SHA"
             echo ""
           '
 
