@@ -116,7 +116,7 @@ jobs:
             GIT_SHA="${{ env.GIT_SHA }}"
             DOCKERHUB_USERNAME="${{ env.DOCKERHUB_USERNAME }}"
             IMAGE_TAG="sha-$GIT_SHA"
-            HEALTH_CHECK_URL="http://localhost:${APP_PORT}/api/v1/actuator/health/ready"
+            HEALTH_CHECK_URL="http://localhost:${APP_PORT}/api/v1/actuator/health"
           
             echo "=================================="
             echo "🚀 Deploying to homelab..."
