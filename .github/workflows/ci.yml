@@ -32,9 +32,15 @@ jobs:
   build-and-push:
     needs: build-and-test
     runs-on: ubuntu-latest
+    outputs:
+      git-sha: ${{ steps.git-sha.outputs.sha }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Get Git SHA
+        id: git-sha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -51,7 +57,7 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/task-manager-api
           tags: |
-            type=sha,format=long
+            type=sha,format=short
             type=raw,value=latest
 
       - name: Build and Push Docker Image
@@ -65,13 +71,10 @@ jobs:
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/task-manager-api:buildcache,mode=max
 
   # ==========================================
-  # JOB 3: DEPLOY
-  # ==========================================
-  # ==========================================
-  # JOB 3: DEPLOY (NATIVE SSH QUA TAILSCALE)
+  # JOB 3: DEPLOY TO HOMELAB
   # ==========================================
   deploy-to-homelab:
-    needs: build-and-push
+    needs: [build-and-test, build-and-push]
     runs-on: ubuntu-latest
     steps:
       - name: Set up Tailscale
@@ -81,25 +84,120 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
-      - name: Native SSH and Deploy
+      - name: Deploy to Homelab
         env:
           SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           HOST: ${{ secrets.SERVER_HOST }}
           USER: ${{ secrets.SSH_USER }}
+          GIT_SHA: ${{ needs.build-and-push.outputs.git-sha }}
         run: |
-          # 1. Debug kiểm tra xem biến có được nạp đủ dòng không (Đếm số dòng)
-          echo "Số dòng của Private Key được nạp:"
-          echo "$SSH_KEY" | wc -l
-          
-          # 2. Tạo thư mục SSH ẩn an toàn trên runner
+          # Setup SSH
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          
-          # 3. Ghi Private Key từ Secret ra một file vật lý và cấp quyền 600
           echo "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           
-          # 4. Tắt chế độ StrictHostKeyChecking (tránh bị hỏi "Are you sure you want to continue connecting (yes/no)?")
+          cat <<EOF > ~/.ssh/config
+          Host homelab
+            HostName $HOST
+            User $USER
+            IdentityFile ~/.ssh/id_ed25519
+            StrictHostKeyChecking no
+            ConnectTimeout 10
+          EOF
+          chmod 600 ~/.ssh/config
+          
+          # Deploy script
+          ssh homelab << 'EOF'
+            set -e
+          
+            APP_PORT="8081"
+            GIT_SHA="${{ needs.build-and-push.outputs.git-sha }}"
+            HEALTH_CHECK_URL="http://localhost:${APP_PORT}/actuator/health/ready"
+          
+            echo "=================================="
+            echo "🚀 Deploying to homelab..."
+            echo "Git SHA: $GIT_SHA"
+            echo "=================================="
+          
+            cd ~/task-manager-deploy/app
+          
+            # Step 1: Get current image (for reference)
+            echo "📸 Current state:"
+            CURRENT_IMAGE=$(docker compose images backend 2>/dev/null | tail -1 | awk '{print $2}' || echo "none")
+            echo "Running image: $CURRENT_IMAGE"
+          
+            # Step 2: Pull latest image
+            echo ""
+            echo "📥 Pulling latest image from Docker Hub..."
+            if ! docker compose pull backend; then
+              echo "❌ Failed to pull image"
+              exit 1
+            fi
+          
+            # Step 3: Graceful shutdown
+            echo ""
+            echo "⏸️  Stopping backend (graceful shutdown 30s)..."
+            docker compose stop -t 30 backend || true
+            sleep 2
+          
+            # Step 4: Start new container
+            echo "🚀 Starting backend with new image..."
+            if ! docker compose up -d backend; then
+              echo "❌ Failed to start container"
+              exit 1
+            fi
+          
+            # Step 5: Health check
+            echo ""
+            echo "⏳ Checking app health (up to 30s)..."
+            RETRY_COUNT=0
+            MAX_RETRIES=30
+          
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if curl -s -f "$HEALTH_CHECK_URL" > /dev/null 2>&1; then
+                echo "✅ App is healthy!"
+                break
+              fi
+          
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "  Attempt $RETRY_COUNT/$MAX_RETRIES..."
+                sleep 1
+              fi
+            done
+          
+            if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+              echo "❌ App failed to become healthy within 30s"
+              echo ""
+              echo "📋 Recent logs:"
+              docker logs task_app --tail 20
+              exit 1
+            fi
+          
+            # Step 6: Cleanup
+            echo ""
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
+          
+            # Success
+            echo ""
+            echo "✅ ========== DEPLOYMENT SUCCESSFUL =========="
+            echo "New image deployed and verified healthy"
+            echo "App URL: http://$HOST:${APP_PORT}"
+            echo ""
+          EOF
+
+      - name: Verify Deployment
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          USER: ${{ secrets.SSH_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          
           cat <<EOF > ~/.ssh/config
           Host homelab
             HostName $HOST
@@ -109,19 +207,14 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
           
-          # 5. SSH thẳng vào server và chạy kịch bản Deploy
+          echo ""
+          echo "🔍 Final verification:"
           ssh homelab << 'EOF'
-            cd ~/task-manager-deploy/app
-            
-            echo "Pulling latest image from Docker Hub..."
-            docker compose pull backend
-            
-            echo "Shutdown backend..."
-            docker compose stop -t 30 backend
-            
-            echo "Restarting services..."
-            docker compose up -d backend
-            
-            echo "Cleaning up old images to save disk space..."
-            docker image prune -f
+            echo ""
+            echo "Running containers:"
+            docker ps --filter "name=task" --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
+            echo ""
+            echo "App health check:"
+            curl -s http://localhost:8081/actuator/health/ready | jq . || echo "Health endpoint: checking..."
+            echo ""
           EOF
