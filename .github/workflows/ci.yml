@@ -113,42 +113,74 @@ jobs:
           
             APP_PORT="8081"
             GIT_SHA="${{ needs.build-and-push.outputs.git-sha }}"
+            DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
             HEALTH_CHECK_URL="http://localhost:${APP_PORT}/actuator/health/ready"
           
             echo "=================================="
             echo "🚀 Deploying to homelab..."
             echo "Git SHA: $GIT_SHA"
+            echo "Docker Image: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
             echo "=================================="
           
             cd ~/task-manager-deploy/app
           
-            # Step 1: Get current image (for reference)
+            # Step 1: Ensure .env file exists
+            if [ ! -f .env ]; then
+              echo "❌ .env file not found in ~/task-manager-deploy/app/"
+              echo "Create it with: APP_VERSION, DB_NAME, DB_USERNAME, DB_PASSWORD, APP_PORT, DOCKERHUB_USERNAME"
+              exit 1
+            fi
+          
+            # Step 2: Update APP_VERSION in .env
+            echo "📝 Setting APP_VERSION=$GIT_SHA in .env..."
+            if grep -q "^APP_VERSION=" .env; then
+              sed -i "s/^APP_VERSION=.*/APP_VERSION=$GIT_SHA/" .env
+            else
+              echo "APP_VERSION=$GIT_SHA" >> .env
+            fi
+          
+            # Verify .env has required variables
+            for var in DOCKERHUB_USERNAME DB_NAME DB_USERNAME DB_PASSWORD APP_PORT; do
+              if ! grep -q "^$var=" .env; then
+                echo "❌ Missing $var in .env"
+                exit 1
+              fi
+            done
+          
+            # Step 3: Get current image (for reference)
             echo "📸 Current state:"
             CURRENT_IMAGE=$(docker compose images backend 2>/dev/null | tail -1 | awk '{print $2}' || echo "none")
             echo "Running image: $CURRENT_IMAGE"
           
-            # Step 2: Pull latest image
+            # Step 4: Pull latest image
             echo ""
             echo "📥 Pulling latest image from Docker Hub..."
+            echo "   Image: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
             if ! docker compose pull backend; then
               echo "❌ Failed to pull image"
+              echo ""
+              echo "Troubleshooting:"
+              echo "1. Check image exists on Docker Hub: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
+              echo "2. Check Docker Hub credentials in CI"
+              echo "3. Check internet connection"
               exit 1
             fi
           
-            # Step 3: Graceful shutdown
+            # Step 5: Graceful shutdown
             echo ""
             echo "⏸️  Stopping backend (graceful shutdown 30s)..."
             docker compose stop -t 30 backend || true
             sleep 2
           
-            # Step 4: Start new container
+            # Step 6: Start new container
             echo "🚀 Starting backend with new image..."
             if ! docker compose up -d backend; then
               echo "❌ Failed to start container"
+              docker compose logs backend --tail 20
               exit 1
             fi
           
-            # Step 5: Health check
+            # Step 7: Health check
             echo ""
             echo "⏳ Checking app health (up to 30s)..."
             RETRY_COUNT=0
@@ -171,11 +203,11 @@ jobs:
               echo "❌ App failed to become healthy within 30s"
               echo ""
               echo "📋 Recent logs:"
-              docker logs task_app --tail 20
+              docker logs task_app --tail 30
               exit 1
             fi
           
-            # Step 6: Cleanup
+            # Step 8: Cleanup
             echo ""
             echo "🧹 Cleaning up old images..."
             docker image prune -f
@@ -183,8 +215,9 @@ jobs:
             # Success
             echo ""
             echo "✅ ========== DEPLOYMENT SUCCESSFUL =========="
-            echo "New image deployed and verified healthy"
-            echo "App URL: http://$HOST:${APP_PORT}"
+            echo "Version: $GIT_SHA"
+            echo "Image: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
+            echo "Status: Verified healthy"
             echo ""
           EOF
 
