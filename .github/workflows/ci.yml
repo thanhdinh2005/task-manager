@@ -115,19 +115,20 @@ jobs:
             APP_PORT="8081"
             GIT_SHA="${{ env.GIT_SHA }}"
             DOCKERHUB_USERNAME="${{ env.DOCKERHUB_USERNAME }}"
+            IMAGE_TAG="sha-$GIT_SHA"
             HEALTH_CHECK_URL="http://localhost:${APP_PORT}/actuator/health/ready"
           
             echo "=================================="
             echo "🚀 Deploying to homelab..."
             echo "Git SHA: $GIT_SHA"
-            echo "Docker Image: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
+            echo "Docker Image: $DOCKERHUB_USERNAME/task-manager-api:$IMAGE_TAG"
             echo "=================================="
           
             cd ~/task-manager-deploy/app
           
             # Step 1: Set environment variables (no .env file needed)
             export DOCKERHUB_USERNAME="$DOCKERHUB_USERNAME"
-            export APP_VERSION="$GIT_SHA"
+            export APP_VERSION="$IMAGE_TAG"
             export DB_NAME="taskdb"
             export DB_USERNAME="taskuser"
             export DB_PASSWORD="$(cat ~/.db_password 2>/dev/null || echo "")"
@@ -141,7 +142,7 @@ jobs:
             echo ""
           
             # Step 2: Pull image
-            echo "📥 Pulling image: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
+            echo "📥 Pulling image: $DOCKERHUB_USERNAME/task-manager-api:$IMAGE_TAG"
             docker compose pull backend || { echo "❌ Failed to pull"; exit 1; }
           
             # Step 3: Stop gracefully
@@ -184,7 +185,7 @@ jobs:
             # Success
             echo ""
             echo "✅ DEPLOYMENT SUCCESSFUL"
-            echo "Version: $GIT_SHA"
+            echo "Version: $IMAGE_TAG"
             echo ""
           '
 
