@@ -1,6 +1,6 @@
 package com.thanh.taskmanager.exception;
 
-import com.thanh.taskmanager.dto.response.ApiResponse;
+import com.thanh.taskmanager.dto.response.AppResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,24 +23,24 @@ import java.util.Map;
 @Slf4j
 public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiResponse<Void>> illegalArgumentExceptionHandler(IllegalArgumentException e) {
+    public ResponseEntity<AppResponse<Void>> illegalArgumentExceptionHandler(IllegalArgumentException e) {
         log.warn("Illegal argument: {}", e.getMessage());
         return ResponseEntity
                 .badRequest()
-                .body(ApiResponse.error(400, e.getMessage()));
+                .body(AppResponse.error(400, e.getMessage()));
     }
 
     @ExceptionHandler(AppException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAppException(AppException ex) {
+    public ResponseEntity<AppResponse<Void>> handleAppException(AppException ex) {
         ErrorCode code = ex.getErrorCode();
         log.warn("App error [{}]: {}", code.name(), code.getMessage());
         return ResponseEntity
                 .status(code.getHttpStatus())
-                .body(ApiResponse.error(code.getHttpStatus(), code.getMessage()));
+                .body(AppResponse.error(code.getHttpStatus(), code.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(
+    public ResponseEntity<AppResponse<Map<String, String>>> handleValidationException(
             MethodArgumentNotValidException ex) {
 
         Map<String, String> errors = new HashMap<>();
@@ -51,12 +51,12 @@ public class GlobalExceptionHandler {
         log.warn("Validation failed: {}", errors);
         return ResponseEntity
                 .badRequest()
-                .body(ApiResponse.error(400, "Validation failed", errors));
+                .body(AppResponse.error(400, "Validation failed", errors));
     }
 
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(
+    public ResponseEntity<AppResponse<Void>> handleTypeMismatch(
             MethodArgumentTypeMismatchException ex) {
 
         String message = String.format("Invalid parameter '%s': '%s'",
@@ -64,30 +64,30 @@ public class GlobalExceptionHandler {
         log.warn("Type mismatch: {}", message);
         return ResponseEntity
                 .badRequest()
-                .body(ApiResponse.error(400, message));
+                .body(AppResponse.error(400, message));
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMissingParam(
+    public ResponseEntity<AppResponse<Void>> handleMissingParam(
             MissingServletRequestParameterException ex) {
 
         String message = String.format("Missing required parameter: '%s'", ex.getParameterName());
         log.warn("Missing param: {}", message);
         return ResponseEntity
                 .badRequest()
-                .body(ApiResponse.error(400, message));
+                .body(AppResponse.error(400, message));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
+    public ResponseEntity<AppResponse<Void>> handleGenericException(Exception ex) {
         log.error("Unhandled exception: ", ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error(500, "An unexpected error occurred. Please try again later."));
+                .body(AppResponse.error(500, "An unexpected error occurred. Please try again later."));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(
+    public ResponseEntity<AppResponse<Void>> handleMethodNotSupported(
             HttpRequestMethodNotSupportedException ex) {
 
         String message = String.format("Method '%s' is not supported for this endpoint, use: %s",
@@ -99,46 +99,46 @@ public class GlobalExceptionHandler {
         log.warn("Method not supported: {}", message);
         return ResponseEntity
                 .status(HttpStatus.METHOD_NOT_ALLOWED)
-                .body(ApiResponse.error(405, message));
+                .body(AppResponse.error(405, message));
     }
 
     @ExceptionHandler(DisabledException.class)
-    public ResponseEntity<ApiResponse<Void>> handleDisabledException(DisabledException ex) {
+    public ResponseEntity<AppResponse<Void>> handleDisabledException(DisabledException ex) {
         log.warn("User disabled: {}", ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error(401, "Your account has been deactivated"));
+                .body(AppResponse.error(401, "Your account has been deactivated"));
     }
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBadCredentials(
+    public ResponseEntity<AppResponse<Void>> handleBadCredentials(
             BadCredentialsException ex
     ) {
         return ResponseEntity.status(401)
-                .body(ApiResponse.error(401, "Invalid email or password"));
+                .body(AppResponse.error(401, "Invalid email or password"));
     }
 
     @ExceptionHandler(LockedException.class)
-    public ResponseEntity<ApiResponse<Void>> handleLocked(
+    public ResponseEntity<AppResponse<Void>> handleLocked(
             LockedException ex
     ) {
         return ResponseEntity.status(403)
-                .body(ApiResponse.error(403, "Account locked"));
+                .body(AppResponse.error(403, "Account locked"));
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAuthenticationException(AuthenticationException ex) {
+    public ResponseEntity<AppResponse<Void>> handleAuthenticationException(AuthenticationException ex) {
         log.warn("Authentication error: {}", ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error(401, "Not authenticated"));
+                .body(AppResponse.error(401, "Not authenticated"));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(AccessDeniedException ex) {
+    public ResponseEntity<AppResponse<Void>> handleAccessDeniedException(AccessDeniedException ex) {
         log.warn("Access denied error: {}", ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error(403, "You are not authorized to perform this request."));
+                .body(AppResponse.error(403, "You are not authorized to perform this request."));
     }
 }
 

@@ -111,13 +111,16 @@ jobs:
           
           # 5. SSH thẳng vào server và chạy kịch bản Deploy
           ssh homelab << 'EOF'
-            cd ~/task-manager-deploy
+            cd ~/task-manager-deploy/app
             
             echo "Pulling latest image from Docker Hub..."
-            docker compose pull
+            docker compose pull backend
+            
+            echo "Shutdown backend..."
+            docker compose stop -t 30 backend
             
             echo "Restarting services..."
-            docker compose up -d
+            docker compose up -d backend
             
             echo "Cleaning up old images to save disk space..."
             docker image prune -f
