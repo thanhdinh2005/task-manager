@@ -108,110 +108,92 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
           
-          # Deploy script - IMPORTANT: Use double quote EOF to expand variables
-          ssh homelab << "DEPLOY_EOF"
+          ssh homelab bash -c '
             set -e
           
             APP_PORT="8081"
-            GIT_SHA="${GIT_SHA}"
-            DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME}"
             HEALTH_CHECK_URL="http://localhost:${APP_PORT}/actuator/health/ready"
           
             echo "=================================="
             echo "🚀 Deploying to homelab..."
-            echo "Git SHA: $GIT_SHA"
-            echo "Docker Image: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
+            echo "Git SHA: ${{ env.GIT_SHA }}"
+            echo "Docker Image: ${{ env.DOCKERHUB_USERNAME }}/task-manager-api:${{ env.GIT_SHA }}"
             echo "=================================="
           
             cd ~/task-manager-deploy/app
           
-            # Step 1: Ensure .env file exists
+            # Check .env
             if [ ! -f .env ]; then
               echo "❌ .env file not found"
               exit 1
             fi
           
-            # Step 2: Update APP_VERSION in .env
-            echo "📝 Setting APP_VERSION=$GIT_SHA in .env..."
+            # Update APP_VERSION
+            echo "📝 Setting APP_VERSION=${{ env.GIT_SHA }} in .env..."
             if grep -q "^APP_VERSION=" .env; then
-              sed -i "s/^APP_VERSION=.*/APP_VERSION=$GIT_SHA/" .env
+              sed -i "s/^APP_VERSION=.*/APP_VERSION=${{ env.GIT_SHA }}/" .env
             else
-              echo "APP_VERSION=$GIT_SHA" >> .env
+              echo "APP_VERSION=${{ env.GIT_SHA }}" >> .env
             fi
           
-            # Verify APP_VERSION was set
-            echo "✅ Verified .env:"
+            echo "✅ .env updated:"
             grep "^APP_VERSION=" .env
             echo ""
           
-            # Step 3: Get current image
+            # Get current image
             echo "📸 Current state:"
-            CURRENT_IMAGE=\$(docker compose images backend 2>/dev/null | tail -1 | awk '{print \$2}' || echo "none")
-            echo "Running image: \$CURRENT_IMAGE"
-          
-            # Step 4: Pull latest image
+            docker compose images backend || echo "No image running"
             echo ""
-            echo "📥 Pulling latest image from Docker Hub..."
-            echo "   Image: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
-            if ! docker compose pull backend; then
-              echo "❌ Failed to pull image"
-              exit 1
-            fi
           
-            # Step 5: Graceful shutdown
+            # Pull image
+            echo "📥 Pulling latest image..."
+            docker compose pull backend || { echo "❌ Failed to pull"; exit 1; }
+          
+            # Stop gracefully
             echo ""
-            echo "⏸️  Stopping backend (graceful shutdown 30s)..."
+            echo "⏸️  Stopping backend (30s graceful shutdown)..."
             docker compose stop -t 30 backend || true
             sleep 2
           
-            # Step 6: Start new container
-            echo "🚀 Starting backend with new image..."
-            if ! docker compose up -d backend; then
-              echo "❌ Failed to start container"
-              docker compose logs backend --tail 20
-              exit 1
-            fi
+            # Start
+            echo "🚀 Starting backend..."
+            docker compose up -d backend || { echo "❌ Failed to start"; docker compose logs backend --tail 20; exit 1; }
           
-            # Step 7: Health check
+            # Health check
             echo ""
-            echo "⏳ Checking app health (up to 30s)..."
-            RETRY_COUNT=0
-            MAX_RETRIES=30
-          
-            while [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; do
-              if curl -s -f "\$HEALTH_CHECK_URL" > /dev/null 2>&1; then
+            echo "⏳ Health check (up to 30s)..."
+            RETRY=0
+            while [ $RETRY -lt 30 ]; do
+              if curl -s -f "$HEALTH_CHECK_URL" > /dev/null 2>&1; then
                 echo "✅ App is healthy!"
                 break
               fi
-          
-              RETRY_COUNT=\$((RETRY_COUNT + 1))
-              if [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; then
-                echo "  Attempt \$RETRY_COUNT/\$MAX_RETRIES..."
+              RETRY=$((RETRY + 1))
+              if [ $RETRY -lt 30 ]; then
+                echo "  Attempt $RETRY/30..."
                 sleep 1
               fi
             done
           
-            if [ \$RETRY_COUNT -eq \$MAX_RETRIES ]; then
-              echo "❌ App failed to become healthy within 30s"
-              echo ""
-              echo "📋 Recent logs:"
-              docker logs task_app --tail 30
+            if [ $RETRY -eq 30 ]; then
+              echo "❌ App not healthy after 30s"
+              echo "📋 Logs:"
+              docker logs task_app --tail 30 || true
               exit 1
             fi
           
-            # Step 8: Cleanup
+            # Cleanup
             echo ""
-            echo "🧹 Cleaning up old images..."
+            echo "🧹 Cleaning up..."
             docker image prune -f
           
             # Success
             echo ""
             echo "✅ ========== DEPLOYMENT SUCCESSFUL =========="
-            echo "Version: $GIT_SHA"
-            echo "Image: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
-            echo "Status: Verified healthy"
+            echo "Version: ${{ env.GIT_SHA }}"
+            echo "Image: ${{ env.DOCKERHUB_USERNAME }}/task-manager-api:${{ env.GIT_SHA }}"
             echo ""
-          DEPLOY_EOF
+          '
 
       - name: Verify Deployment
         env:
