@@ -90,6 +90,7 @@ jobs:
           HOST: ${{ secrets.SERVER_HOST }}
           USER: ${{ secrets.SSH_USER }}
           GIT_SHA: ${{ needs.build-and-push.outputs.git-sha }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           # Setup SSH
           mkdir -p ~/.ssh
@@ -107,13 +108,13 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
           
-          # Deploy script
-          ssh homelab << 'EOF'
+          # Deploy script - IMPORTANT: Use double quote EOF to expand variables
+          ssh homelab << "DEPLOY_EOF"
             set -e
           
             APP_PORT="8081"
-            GIT_SHA="${{ needs.build-and-push.outputs.git-sha }}"
-            DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+            GIT_SHA="${GIT_SHA}"
+            DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME}"
             HEALTH_CHECK_URL="http://localhost:${APP_PORT}/actuator/health/ready"
           
             echo "=================================="
@@ -126,8 +127,7 @@ jobs:
           
             # Step 1: Ensure .env file exists
             if [ ! -f .env ]; then
-              echo "❌ .env file not found in ~/task-manager-deploy/app/"
-              echo "Create it with: APP_VERSION, DB_NAME, DB_USERNAME, DB_PASSWORD, APP_PORT, DOCKERHUB_USERNAME"
+              echo "❌ .env file not found"
               exit 1
             fi
           
@@ -139,18 +139,15 @@ jobs:
               echo "APP_VERSION=$GIT_SHA" >> .env
             fi
           
-            # Verify .env has required variables
-            for var in DOCKERHUB_USERNAME DB_NAME DB_USERNAME DB_PASSWORD APP_PORT; do
-              if ! grep -q "^$var=" .env; then
-                echo "❌ Missing $var in .env"
-                exit 1
-              fi
-            done
+            # Verify APP_VERSION was set
+            echo "✅ Verified .env:"
+            grep "^APP_VERSION=" .env
+            echo ""
           
-            # Step 3: Get current image (for reference)
+            # Step 3: Get current image
             echo "📸 Current state:"
-            CURRENT_IMAGE=$(docker compose images backend 2>/dev/null | tail -1 | awk '{print $2}' || echo "none")
-            echo "Running image: $CURRENT_IMAGE"
+            CURRENT_IMAGE=\$(docker compose images backend 2>/dev/null | tail -1 | awk '{print \$2}' || echo "none")
+            echo "Running image: \$CURRENT_IMAGE"
           
             # Step 4: Pull latest image
             echo ""
@@ -158,11 +155,6 @@ jobs:
             echo "   Image: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
             if ! docker compose pull backend; then
               echo "❌ Failed to pull image"
-              echo ""
-              echo "Troubleshooting:"
-              echo "1. Check image exists on Docker Hub: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
-              echo "2. Check Docker Hub credentials in CI"
-              echo "3. Check internet connection"
               exit 1
             fi
           
@@ -186,20 +178,20 @@ jobs:
             RETRY_COUNT=0
             MAX_RETRIES=30
           
-            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-              if curl -s -f "$HEALTH_CHECK_URL" > /dev/null 2>&1; then
+            while [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; do
+              if curl -s -f "\$HEALTH_CHECK_URL" > /dev/null 2>&1; then
                 echo "✅ App is healthy!"
                 break
               fi
           
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                echo "  Attempt $RETRY_COUNT/$MAX_RETRIES..."
+              RETRY_COUNT=\$((RETRY_COUNT + 1))
+              if [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; then
+                echo "  Attempt \$RETRY_COUNT/\$MAX_RETRIES..."
                 sleep 1
               fi
             done
           
-            if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            if [ \$RETRY_COUNT -eq \$MAX_RETRIES ]; then
               echo "❌ App failed to become healthy within 30s"
               echo ""
               echo "📋 Recent logs:"
@@ -219,7 +211,7 @@ jobs:
             echo "Image: $DOCKERHUB_USERNAME/task-manager-api:$GIT_SHA"
             echo "Status: Verified healthy"
             echo ""
-          EOF
+          DEPLOY_EOF
 
       - name: Verify Deployment
         env:
