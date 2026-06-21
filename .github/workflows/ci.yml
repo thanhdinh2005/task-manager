@@ -126,13 +126,9 @@ jobs:
           
             cd ~/task-manager-deploy/app
           
-            # Step 1: Set environment variables (no .env file needed)
+            # Step 1: Set environment variables
             export DOCKERHUB_USERNAME="$DOCKERHUB_USERNAME"
             export APP_VERSION="$IMAGE_TAG"
-            export DB_NAME="taskdb"
-            export DB_USERNAME="taskuser"
-            export DB_PASSWORD="$(cat ~/.db_password 2>/dev/null || echo "")"
-            export APP_PORT="$APP_PORT"
           
             # Debug: Show vars
             echo "📝 Environment:"

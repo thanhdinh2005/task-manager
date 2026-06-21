@@ -1,0 +1,29 @@
+services:
+  backend:
+    image: ${DOCKERHUB_USERNAME}/task-manager-api:${APP_VERSION:-latest}
+    container_name: task_app
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT}:8081"
+    networks:
+      - task-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: on-failure:3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  task-network:
+    external: true
+    name: task-network
